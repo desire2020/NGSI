@@ -220,7 +220,7 @@ class Graph(object):
         self.push_expr = self.expr
         self.push_fake = self.fake
         self.expr = edit_expr(self.expr, idx, target)
-        p, t = parse_param(target, self.tensors[idx].get_shape().as_list())
+        p, t = parse_param(target, self.tensors[idx].get_shape().as_list()[1:])
         self.params = self.tensors[0:idx] + p + self.tensors[idx+1:]
         self.tensors = self.tensors[0:idx] + t + self.tensors[idx+1:]
         self.execute()
