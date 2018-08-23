@@ -62,7 +62,7 @@ def multinomial_sample(param):
     return tf.one_hot(multinomial_sampled, shape[-1], 1.0, 0.0)
 
 def intergration_matrix(n):
-    return tf.cumsum(tf.diag(tf.ones([n], dtype=tf.float32)))
+    return tf.tile(tf.expand_dims(tf.cumsum(tf.diag(tf.ones([n], dtype=tf.float32))), axis=0), [BATCH_SIZE, 1, 1])
 
 
 
@@ -128,15 +128,66 @@ def edit_expr(expr, idx, target):
         i += 1
     return expr[0:last_i] + target + expr[i + 1:]
 def parse_param(expr, shape, rank=None):
-    p = [c for c in expr if c in {"G", "M", "C", "B"}]
-    if len(p) == 1: # meaning this is "B"
+    pp = [c for c in expr if c in {"G", "M", "C", "B"}]
+    transposed = len([c for c in expr if c == "'"]) == 1
+    p, t = None, None
+    if rank is None:
+        rank = shape[-1]
+    shape0, shape1 = [shape[0], rank], [rank, shape[1]]
+    if len(pp) == 1: # meaning this is "B"
         p = [tf.Variable(initial_value=[1.0, 1.0])]
         t = [bernoulli_sample(p + [shape])]
-    elif len(p) == 2: # meaning
-        p = [tf.Variable(initial_value=tf.ones(shape)), tf.Variable(initial_value=tf.ones(shape))]
-        t = [tf.random_normal(shape=shape) * p[0], tf.random_normal(shape=shape) * p[1]]
+    elif len(pp) == 2: # meaning
+        p = [tf.Variable(initial_value=tf.ones(shape0)), tf.Variable(initial_value=tf.ones(shape1))]
+        t = [gaussian_sample((p[0], shape0)), gaussian_sample((p[1], shape1))]
     else:
-
+        p = [None, None, None]
+        t = [None, None, None]
+        if pp[1] == "C":
+            rank = shape[1]
+            shape0, shape1 = [shape[0], rank], [rank, shape[1]]
+        if pp[0] == "G":
+            p[0] = tf.Variable(initial_value=tf.ones(shape0))
+            t[0] = gaussian_sample((p[0], shape0))
+        elif pp[0] == "M":
+            p[0] = tf.Variable(initial_value=tf.ones([rank]))
+            t[0] = multinomial_sample((p[0], shape0))
+        elif pp[0] == "B":
+            p[0] = tf.Variable(initial_value=[1.0, 1.0])
+            t[0] = bernoulli_sample((p[0], shape0))
+        else:
+            p[0] = tf.Variable(initial_value=0.0) # useless parameter
+            rank = shape[0]
+            t[0] = intergration_matrix(shape[0])
+            shape0, shape1 = [shape[0], rank], [rank, shape[1]]
+        if transposed:
+            shape1 = [shape[1], rank]
+            if pp[1] == "G":
+                p[1] = tf.Variable(initial_value=tf.ones(shape1))
+                t[1] = gaussian_sample((p[1], shape1))
+            elif pp[1] == "M":
+                p[1] = tf.Variable(initial_value=tf.ones([rank]))
+                t[1] = multinomial_sample((p[1], shape1))
+            elif pp[1] == "B":
+                p[1] = tf.Variable(initial_value=[1.0, 1.0])
+                t[1] = bernoulli_sample((p[1], shape1))
+            else:
+                p[1] = tf.Variable(initial_value=0.0)  # useless parameter
+                t[1] = intergration_matrix(rank)
+        if pp[1] == "G":
+            p[1] = tf.Variable(initial_value=tf.ones(shape1))
+            t[1] = gaussian_sample((p[1], shape1))
+        elif pp[1] == "M":
+            p[1] = tf.Variable(initial_value=tf.ones([rank]))
+            t[1] = multinomial_sample((p[1], shape1))
+        elif pp[1] == "B":
+            p[1] = tf.Variable(initial_value=[1.0, 1.0])
+            t[1] = bernoulli_sample((p[1], shape1))
+        else:
+            p[1] = tf.Variable(initial_value=0.0)  # useless parameter
+            t[1] = intergration_matrix(rank)
+        p[2] = tf.Variable(initial_value=tf.ones(shape))
+        t[2] = gaussian_sample((p[2], shape))
     return p, t
 
 class Graph(object):
@@ -145,7 +196,7 @@ class Graph(object):
         self.real = tf.placeholder(shape=[64] + self.shape, dtype=tf.float32)
         self.fake = None
         self.sess = None
-        self.params = [tf.Variable(initial_value=tf.zeros(self.shape))]
+        self.params = [tf.Variable(initial_value=tf.ones(self.shape))]
         self.tensors = [tf.random_normal(shape=[64] + self.shape) * tf.reshape(self.params[0], [1] + self.shape)]
         self.grad_norm = [tf.Variable(0.0, trainable=False)]
         self.expr = "G"
@@ -171,10 +222,33 @@ class Graph(object):
         p, t = parse_param(target, self.tensors[idx].get_shape())
         self.params = self.tensors[0:idx] + p + self.tensors[idx+1:]
         self.tensors = self.tensors[0:idx] + t + self.tensors[idx+1:]
+        self.execute()
         self.d_saver.save(self.sess, "saved_model/d")
         self.candidates = []
     def execute(self):
-        pass
+        self.current_tensor_idx = 0
+        def __parse(idx):
+            if idx >= len(self.expr):
+                print("PARSE ERROR")
+            if self.expr[idx] == "+":
+                param, _idx = __parse(idx + 1)
+                _param, __idx = __parse(_idx)
+                return param + _param, __idx
+            elif self.expr[idx] == "@":
+                param, _idx = __parse(idx + 1)
+                _param, __idx = __parse(_idx)
+                return param @ _param, __idx
+            elif self.expr[idx] == "'":
+                param, _idx = __parse(idx + 1)
+                return tf.transpose(param, [0, 2, 1]), _idx
+            elif self.expr[idx] == "e":
+                param, _idx = __parse(idx + 1)
+                return tf.exp(param), _idx
+            else:
+                self.current_tensor_idx += 1
+                return self.tensors[self.current_tensor_idx - 1]
+        self.fake = __parse(0)[0]
+
     def rewind_model(self):
         self.candidates.append((self.tensors, self.expr, self.fake, self.sess.run(self.current_eval)))
         self.tensors = self.push_tensors
