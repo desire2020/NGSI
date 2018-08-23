@@ -200,6 +200,7 @@ class Graph(object):
         self.tensors = [tf.random_normal(shape=[64] + self.shape) * tf.reshape(self.params[0], [1] + self.shape)]
         self.grad_norm = [tf.Variable(0.0, trainable=False)]
         self.expr = "G"
+        self.fake = self.tensors[0]
         self.d = Discriminator()
         self.candidates = [] # list of pairs (self.tensors, self.expr, self.fake, self.converged_d_loss)
         self.real_score = tf.reduce_mean(self.d(self.real))
@@ -213,13 +214,13 @@ class Graph(object):
         self.d_saver = tf.train.Saver(self.d_params)
 
     def update_model(self, idx, target):
-        self.g_saver = tf.train.Saver(self.tensors)
+        self.g_saver = tf.train.Saver(self.params)
         self.g_saver.save(self.sess, "saved_model/g_%s" % self.expr)
         self.push_tensors = self.tensors.copy()
         self.push_expr = self.expr
         self.push_fake = self.fake
         self.expr = edit_expr(self.expr, idx, target)
-        p, t = parse_param(target, self.tensors[idx].get_shape())
+        p, t = parse_param(target, self.tensors[idx].get_shape().as_list())
         self.params = self.tensors[0:idx] + p + self.tensors[idx+1:]
         self.tensors = self.tensors[0:idx] + t + self.tensors[idx+1:]
         self.execute()
@@ -246,7 +247,7 @@ class Graph(object):
                 return tf.exp(param), _idx
             else:
                 self.current_tensor_idx += 1
-                return self.tensors[self.current_tensor_idx - 1]
+                return self.tensors[self.current_tensor_idx - 1], idx + 1
         self.fake = __parse(0)[0]
 
     def rewind_model(self):
@@ -266,22 +267,6 @@ def main():
     model = Graph()
     model.sess = sess
     sess.run(tf.global_variables_initializer())
-    for i in range(1000000):
-        D_loss = []
-        for _ in range(10):
-            real = []
-            for _ in range(64):
-                real.append(MultinomialSample(synthetic[0]))# @ GaussianSample(synthetic[1]) + GaussianSample(synthetic[2]))
-            real = np.stack(real)
-            d_loss, _ = sess.run([model.d_loss, model.update], feed_dict={model.real: real})
-            D_loss.append(d_loss)
-        D_loss = np.mean(D_loss)
-        sess.run(model.update_dist)
-        if i % 100 == 0:
-            print("d_loss at iteration #%d: %f" % (i, D_loss))
-            print("now alpha is:")
-            for v in model.alphas:
-                print(v)
-
+    model.update_model(0, "+@GGG")
 if __name__ == "__main__":
     main()
