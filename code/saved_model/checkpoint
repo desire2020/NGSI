@@ -1,2 +1,2 @@
-model_checkpoint_path: "g_G"
-all_model_checkpoint_paths: "g_G"
+model_checkpoint_path: "d"
+all_model_checkpoint_paths: "d"
