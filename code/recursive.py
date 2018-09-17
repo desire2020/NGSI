@@ -180,7 +180,7 @@ class GaussianNode(LeafNode):
         elif self.variance_type == 'row':
             return self.value().mean(axis=1), self.value().std(dim=1)
         elif self.variance_type == 'col':
-            return self.value().mean(dim=0), self.value().std(dim=0)
+            return self.value().mean(axis=0), self.value().std(axis=0)
 
     def sample_matrix(self, size):
         if self.variance_type == 'scalar':
@@ -192,7 +192,7 @@ class GaussianNode(LeafNode):
             return std[:, np.newaxis] * np.random.normal(size=size) + mu[:, np.newaxis]
         elif self.variance_type == 'col':
             mu, std = self.mle_param()
-            assert mu.shape[1] == size[1]
+            assert mu.shape[0] == size[1]
             return std[np.newaxis, :] * np.random.normal(size=size) + mu[np.newaxis, :]
 
 
