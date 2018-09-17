@@ -1,12 +1,10 @@
 import numpy as np
 nax = np.newaxis
 import scipy.special
-import weave
 import time
 import traceback
 
-import ibp_split_merge
-import low_rank
+from algorithms import ibp_split_merge, low_rank
 import observations
 
 from utils import distributions, gaussians, misc
@@ -282,50 +280,19 @@ def gauss_loglik_vec(x, mu, ssq):
 def gauss_loglik_vec_C(x, mu, ssq):
     dim = int(x.size)
     logpi = float(np.log(2*np.pi))
-    code = """
-    int i;
-    double diff;
-    double ans = dim * logpi;
-    for (i = 0; i < dim; i++){
-        ans += log(ssq(i));
-        diff = x(i) - mu(i);
-        ans += diff * diff / ssq(i);
-    }
-    return_val = -0.5 * ans;
-    """
-    for i in range(5):
-        try:
-            ans = weave.inline(code, ['x', 'mu', 'ssq', 'logpi', 'dim'], type_converters=scipy.weave.converters.blitz)
-            return ans
-        except:
-            traceback.print_exc()
-            time.sleep(5)
-    raise RuntimeError('Error in weave')
-
+    ans = dim * logpi
+    diff = x - mu
+    ans += dim * np.sum(np.log(ssq)) + np.sum((diff ** 2) / ssq)
+    return ans
 def gauss_loglik_vec_C2(x, mu, ssq):
     ssq = float(ssq)   # Weave complains if it's type np.float64
     dim = int(x.size)
     logpi = float(np.log(2*np.pi))
-    code = """
-    int i;
-    double diff;
-    double ans = dim * logpi;
-    double log_ssq = log(ssq);
-    for (i = 0; i < dim; i++){
-        ans += log_ssq;
-        diff = x(i) - mu(i);
-        ans += diff * diff / ssq;
-    }
-    return_val = -0.5 * ans;
-    """
-    for i in range(5):
-        try:
-            ans = weave.inline(code, ['x', 'mu', 'ssq', 'logpi', 'dim'], type_converters=weave.converters.blitz)
-            return ans
-        except:
-            traceback.print_exc()
-            time.sleep(5)
-    raise RuntimeError('Error in weave')
+    ans = dim * logpi
+    log_ssq = np.log(ssq)
+    diff = x - mu
+    ans += dim * log_ssq + np.sum(diff ** 2) / ssq
+    return ans
 
 def evidence_collapsed_slow(model, data, state):
     N, K, D = state.Z.shape[0], state.Z.shape[1], state.X.shape[1]

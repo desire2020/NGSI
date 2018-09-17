@@ -2,7 +2,7 @@ import numpy as np
 nax = np.newaxis
 import scipy.special
 
-import ibp
+from algorithms import ibp
 import observations
 from utils import distributions, gaussians, psd_matrices
 

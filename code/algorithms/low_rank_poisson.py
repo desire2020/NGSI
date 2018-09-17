@@ -268,11 +268,11 @@ def add_delete_move(state, X, obs):
         assert np.isfinite(ratio)
         if np.random.binomial(1, min(np.exp(ratio), 1)):
             if VERBOSE:
-                print 'Add move accepted (ratio=%1.2f)' % ratio
+                print('Add move accepted (ratio=%1.2f)' % ratio)
             return new_state
         else:
             if VERBOSE:
-                print 'Add move rejected (ratio=%1.2f)' % ratio
+                print('Add move rejected (ratio=%1.2f)' % ratio)
             return state
         
     else:   # delete move
@@ -303,11 +303,11 @@ def add_delete_move(state, X, obs):
         assert np.isfinite(ratio)
         if np.random.binomial(1, min(np.exp(ratio), 1)):
             if VERBOSE:
-                print 'Delete move accepted (ratio=%1.2f)' % ratio
+                print('Delete move accepted (ratio=%1.2f)' % ratio)
             return new_state
         else:
             if VERBOSE:
-                print 'Delete move rejected (ratio=%1.2f)' % ratio
+                print('Delete move rejected (ratio=%1.2f)' % ratio)
             return state
         
 
@@ -357,9 +357,9 @@ def fit_model(data_matrix, K=K_INIT, num_iter=NUM_ITER, name=None):
             state = add_delete_move(state, X, data_matrix.observations.mask)
 
         if VERBOSE:
-            print 'K =', state.U.shape[1]
-            print 'ssq_N =', state.ssq_N
-            print 'X.var() =', X.var()
+            print('K =', state.U.shape[1])
+            print('ssq_N =', state.ssq_N)
+            print('X.var() =', X.var())
 
         #misc.print_dot(it+1, num_iter)
         pbar.update(it)

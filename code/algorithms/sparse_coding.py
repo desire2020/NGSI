@@ -1,7 +1,7 @@
 import numpy as np
 nax = np.newaxis
 
-import slice_sampling
+from algorithms import slice_sampling
 from utils import distributions
 
 debugger = None

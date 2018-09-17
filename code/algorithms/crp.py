@@ -4,7 +4,7 @@ import sklearn.cluster
 import scipy.special
 import time
 
-import low_rank
+import algorithms.low_rank as low_rank
 from utils import distributions, gaussians, psd_matrices, misc
 from_iso = gaussians.Potential.from_moments_iso
 

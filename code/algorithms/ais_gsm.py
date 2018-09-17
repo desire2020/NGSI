@@ -4,7 +4,7 @@ import pylab
 
 import predictive_distributions
 from utils import distributions
-import variational
+import algorithms.variational as variational
 
 SIGMOID_SCHEDULE = True
 

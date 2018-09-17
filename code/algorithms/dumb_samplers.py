@@ -4,8 +4,8 @@ import scipy.optimize
 
 import grammar
 import models
-import slice_sampling
-import sparse_coding
+import algorithms.slice_sampling as slice_sampling
+import algorithms.sparse_coding as sparse_coding
 from utils import distributions, misc
 
 
@@ -275,16 +275,16 @@ def list_samplers(model, maximize=False):
     models.align(node, model)
     samplers = get_samplers('dummy', node, maximize)
     node.model.display()
-    print
+    print()
     for s in samplers:
-        print s
+        print(s)
 
 
 def sweep(data_matrix, root, num_iter=100, maximize=False):
     samplers = get_samplers(data_matrix, root, maximize)
 
     if num_iter > 1:
-        print 'Dumb Gibbs sampling on %s...' % grammar.pretty_print(root.structure())
+        print('Dumb Gibbs sampling on %s...' % grammar.pretty_print(root.structure()))
         pbar = misc.pbar(num_iter)
     else:
         pbar = None
