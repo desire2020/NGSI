@@ -316,7 +316,7 @@ def init_level(name, level):
                 node, old_dist, rule = recursive.find_changed_node(prev_model, init_structure, structure)
                 lab = labelize(rule)
                 node_mat[split_id * params.num_samples + sample_id] = pad(random_shrink(node.value()))
-        
+
         if_continue = sess.run(tf.nn.top_k(c_out, 3), feed_dict={real: node_mat})
         if lab in if_continue.indices:
             print("transformation structure ", grammar.pretty_print(init_structure), "->", grammar.pretty_print(structure), "i.e. lab ", lab,
@@ -434,6 +434,12 @@ def fit_winning_sequence(name, sample_id):
     decomps = recursive.fit_sequence(sequence, data_matrix, gibbs_steps=params.gibbs_steps)
     storage.dump(decomps, winning_samples_file(name, sample_id))
 
+
+def sample_matrix(name, sample_id, level, size, output_file):
+    decomps = storage.load(winning_samples_file(name, sample_id))
+    data = decomps[level].sample_matrix(size)
+    storage.dump(data, output_file)
+    print('Samples saved at: "{}".'.format(output_file))
 
 
 
@@ -954,6 +960,16 @@ if __name__ == '__main__':
         add_scheduler_args(parser)
         args = parser.parse_args()
         run_everything(args.name, args, email=args.email)
+
+    elif command == 'sample_matrix':
+        parser.add_argument('name', type=str)
+        parser.add_argument('sample_id', type=int)
+        parser.add_argument('--level', required=True, type=int)
+        parser.add_argument('--size', required=True, type=int, nargs=2)
+        parser.add_argument('--output-file', type=str, default='sample.pk')
+        args = parser.parse_args()
+        sample_matrix(args.name, args.sample_id, args.level, args.size, args.output_file)
+
     elif command == 'report':
         parser.add_argument('name', type=str)
         parser.add_argument('--email', type=str, default=None)

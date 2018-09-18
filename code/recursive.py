@@ -37,6 +37,9 @@ class Node:
     def descendant(self, path):
         return descendant(self, path)
 
+    def sample_matrix(self, size):
+        raise NotImplementedError('sample_matrix() is not implemented for node type "{}".'.format(type(self)))
+
 
 class LeafNode(Node):
     def __init__(self, value):
@@ -85,8 +88,11 @@ class LeafNode(Node):
     def isleaf(self):
         return True
 
+    def mle_param(self):
+        raise NotImplementedError('mle_param() is not implemented for node type "{}".'.foramt(type(self)))
 
-        
+
+
 
 class GaussianNode(LeafNode):
     def __init__(self, value, variance_type, sigma_sq):
@@ -95,7 +101,7 @@ class GaussianNode(LeafNode):
             raise RuntimeError('Unknown variance type: %s' % variance_type)
         self.variance_type = variance_type
         self.sigma_sq = sigma_sq
-        
+
     def distribution(self):
         return 'g'
 
@@ -129,7 +135,7 @@ class GaussianNode(LeafNode):
             a = 0.01 + 0.5 * self.m
             b = 0.01 + 0.5 * np.sum(self.value() ** 2, axis=0)
         self.sigma_sq = 1. / np.random.gamma(a, 1. / b)
-        
+
 
     def transpose_class(self):
         return GaussianNode
@@ -171,6 +177,27 @@ class GaussianNode(LeafNode):
             var = np.ones(5)
         return GaussianNode(np.zeros((5, 5)), 'scalar', var)
 
+    def mle_param(self):
+        if self.variance_type == 'scalar':
+            return self.value().mean(), self.value().std()
+        elif self.variance_type == 'row':
+            return self.value().mean(axis=1), self.value().std(dim=1)
+        elif self.variance_type == 'col':
+            return self.value().mean(axis=0), self.value().std(axis=0)
+
+    def sample_matrix(self, size):
+        if self.variance_type == 'scalar':
+            mu, std = self.mle_param()
+            return std * np.random.normal(size=size) + mu
+        elif self.variance_type == 'row':
+            mu, std = self.mle_param()
+            assert mu.shape[0] == size[0]
+            return std[:, np.newaxis] * np.random.normal(size=size) + mu[:, np.newaxis]
+        elif self.variance_type == 'col':
+            mu, std = self.mle_param()
+            assert mu.shape[0] == size[1]
+            return std[np.newaxis, :] * np.random.normal(size=size) + mu[np.newaxis, :]
+
 
 class MultinomialNode(LeafNode):
     def distribution(self):
@@ -182,6 +209,17 @@ class MultinomialNode(LeafNode):
     @staticmethod
     def dummy():
         return MultinomialNode(np.eye(5, dtype=int))
+
+    def mle_param(self):
+        unnormalized = self.value().sum(axis=0)
+        return unnormalized / unnormalized.sum()
+
+    def sample_matrix(self, size):
+        assert size[1] == self.value().shape[1]
+        ind = np.random.choice(size[1], size=size[0], p=self.mle_param())
+        one_hot = np.zeros(size, dtype='float')
+        one_hot[np.arange(ind.shape[0]), ind] = 1
+        return one_hot
 
 
 class MultinomialTNode(LeafNode):
@@ -195,6 +233,17 @@ class MultinomialTNode(LeafNode):
     def dummy():
         return MultinomialTNode(np.eye(5, dtype=int))
 
+    def mle_param(self):
+        unnormalized = self.value().sum(axis=1)
+        return unnormalized / unnormalized.sum()
+
+    def sample_matrix(self, size):
+        assert size[0] == self.value().shape[0]
+        ind = np.random.choice(size[0], size=size[1], p=self.mle_param())
+        one_hot = np.zeros(size, dtype='float')
+        one_hot[ind, np.arange(ind.shape[0])] = 1
+        return one_hot
+
 
 class BernoulliNode(LeafNode):
     def distribution(self):
@@ -207,6 +256,14 @@ class BernoulliNode(LeafNode):
     def dummy():
         return BernoulliNode(np.zeros((5, 5), dtype=int))
 
+    def mle_param(self):
+        return self.value().mean(axis=0)
+
+    def sample_matrix(self, size):
+        assert size[1] == self.value().shape[1]
+        x = np.random.random(size=size)
+        return (x < self.mle_param()[:, np.newaxis]).astype('float')
+
 class BernoulliTNode(LeafNode):
     def distribution(self):
         return 'B'
@@ -217,6 +274,14 @@ class BernoulliTNode(LeafNode):
     @staticmethod
     def dummy():
         return BernoulliTNode(np.zeros((5, 5), dtype=int))
+
+    def mle_param(self):
+        return self.value().mean(axis=1)
+
+    def sample_matrix(self, size):
+        assert size[0] == self.value().shape[0]
+        x = np.random.random(size=size)
+        return (x < self.mle_param()[np.newaxis]).astype('float')
 
 class IntegrationNode(LeafNode):
     def distribution(self):
@@ -229,6 +294,14 @@ class IntegrationNode(LeafNode):
     def dummy():
         return IntegrationNode(chains.integration_matrix(5))
 
+    def mle_param(self):
+        return None
+
+    def sample_matrix(self, size):
+        x = np.arange(size[0])
+        y = np.arange(size[1])
+        return (x[np.newaxis, :] <= y[:, np.newaxis]).astype('float')
+
 class IntegrationTNode(LeafNode):
     def distribution(self):
         return 'C'
@@ -239,6 +312,15 @@ class IntegrationTNode(LeafNode):
     @staticmethod
     def dummy():
         return IntegrationTNode(chains.integration_matrix(5).T)
+
+    def mle_param(self):
+        return None
+
+    def sample_matrix(self, size):
+        x = np.arange(size[1])
+        y = np.arange(size[0])
+        return (x[np.newaxis, :] <= y[:, np.newaxis]).astype('float').T
+
 
 
 class GSMNode(Node):
@@ -360,6 +442,9 @@ class SumNode(Node):
     def predictions(self):
         return self.value() - self.children[-1].value()
 
+    def sample_matrix(self, size):
+        return self.children[0].sample_matrix(size) + self.children[1].sample_matrix(size)
+
 
 class ProductNode(Node):
     def __init__(self, children):
@@ -371,7 +456,7 @@ class ProductNode(Node):
             assert child.parent is None
             child.parent = self
         self.model = None
-        
+
 
     def description(self):
         children_str = ', '.join([c.description() for c in self.children])
@@ -414,6 +499,12 @@ class ProductNode(Node):
     def isproduct(self):
         return True
 
+    def sample_matrix(self, size):
+        size1 = (size[0], self.children[0].value().shape[1])
+        size2 = (self.children[1].value().shape[0], size[1])
+        return np.dot(self.children[0].sample_matrix(size1), self.children[1].sample_matrix(size2))
+
+
 
 def get_path(top, bottom):
     if top is bottom:
@@ -452,7 +543,7 @@ def compute_col_ids(top, col_ids, bottom):
             if next_node is curr_node.children[0] and not isinstance(curr_node.children[1], IntegrationTNode):
                 col_ids = range(curr_node.children[1].m)
     return col_ids
-    
+
 def col_ids_for(data_matrix, node):
     return compute_col_ids(node.root(), data_matrix.col_ids, node)
 
@@ -523,9 +614,9 @@ ProductModel = ProductNode
 
 
 
-    
 
-   
+
+
 ######################### High-level utilities #################################
 
 def fit_model(structure, data_matrix, old_root=None, gibbs_steps=200):
@@ -536,7 +627,7 @@ def fit_model(structure, data_matrix, old_root=None, gibbs_steps=200):
     model = models.get_model(structure, fixed_noise_variance=data_matrix.fixed_variance())
     models.align(root, model)
     dumb_samplers.sweep(data_matrix, root, num_iter=gibbs_steps)
-    dumb_samplers.sweep(data_matrix, root, maximize=True, num_iter=1)  
+    dumb_samplers.sweep(data_matrix, root, maximize=True, num_iter=1)
     return root
 
 def fit_sequence(sequence, data_matrix, gibbs_steps=200):
