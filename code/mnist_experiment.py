@@ -130,7 +130,7 @@ def main():
     saver = tf.train.Saver(tf.global_variables())
     if LOAD:
         saver.restore(sess, model_path)
-    USED_NUM = 1000
+    USED_NUM = 2000
     code_mat = np.zeros([USED_NUM// BATCH_SIZE, BATCH_SIZE, 32])
     imgs = []
     for iter_idx in range(USED_NUM // BATCH_SIZE):
@@ -145,7 +145,7 @@ def main():
     code_mat = np.reshape(code_mat, [USED_NUM, 32])
     code_mat /= np.std(code_mat)
     code_mat -= np.mean(code_mat)
-    code_mat = np.random.normal(code_mat, np.sqrt(0.1))
+    # code_mat = np.random.normal(code_mat, np.sqrt(0.1))
     data_matrix = DataMatrix.from_real_values(code_mat)
     init_experiment('mnist-noised', data_matrix, QuickParams(search_depth=2))
 

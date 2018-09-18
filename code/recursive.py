@@ -70,7 +70,8 @@ class LeafNode(Node):
     def structure(self):
         return self.distribution()
 
-    
+    def distribution(self):
+        raise NotImplementedError("No distribution specified.")
 
     def has_children(self):
         return False

@@ -706,7 +706,7 @@ def final_structure(name):
     params = storage.load(params_file(name))
     stop_at = 0
     for level in range(1, params.search_depth + 1):
-        if compute_improvement(name, level) > 1.:
+        if compute_improvement(name, level) > THRESHOLD:
             stop_at = level
         else:
             break
@@ -815,10 +815,13 @@ def print_components_for_decomp(name, structure, decomp, outfile=sys.stdout):
             left_dist, right_dist = 'm', 'M'
         else:
             left_dist, right_dist = 'b', 'B'
-
+        def row_check(node):
+            ans = isinstance(node, recursive.LeafNode) \
+                   and node.distribution() == left_dist \
+                   and node.m == data_matrix.m
+            return ans
         if data_matrix.row_labels is not None:
-            nodes = recursive.find_nodes(decomp, lambda node: isinstance(node, recursive.LeafNode)
-                                         and node.distribution() == left_dist and node.m == data_matrix.m)
+            nodes = recursive.find_nodes(decomp, row_check)
             for node in nodes:
                 items = [presentation.LatentVariables(row_label, node.value()[i, :])
                          for i, row_label in enumerate(data_matrix.row_labels)]
