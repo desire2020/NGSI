@@ -12,7 +12,7 @@ SCHEDULER = 'parallel'
 
 # How much improvement would be considered acceptable
 
-THRESHOLD = 0.3
+THRESHOLD = 1.0
 
 # additional options for GNU Parallel
 DEFAULT_NUM_JOBS = 4
