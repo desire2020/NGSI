@@ -46,7 +46,7 @@ to reproduce the results.
 
 # Further Parameter Adjusting
 
-You can find the search settings in ./experiments.py. Also, if you would like to run the exhausted version of the search, you can replace ./experiments.py with ./experiments_roger.py
+You can find the search settings in ./experiments.py. Also, if you would like to run Roger's version of search, you can replace ./experiments.py with ./experiments_roger.py
 
 # Acknowledgements
 Much of the code is borrowed from https://github.com/rgrosse/compositional_structure_search. We thank Roger for his great job!
